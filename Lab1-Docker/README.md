@@ -1,6 +1,6 @@
 # Lab 1: Docker - Go Web Application
 
-This project is part of the **MLOps Spring 2026** course. It demonstrates how to containerize a simple Go web application using Docker, showcasing multi-stage builds and lightweight container images.
+This project demonstrates how to containerize a simple Go web application using Docker, showcasing multi-stage builds and lightweight container images.
 
 ## Project Overview
 
