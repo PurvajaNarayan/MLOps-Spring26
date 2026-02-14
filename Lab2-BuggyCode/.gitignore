@@ -1,0 +1,31 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+.venv
+env/
+venv/
+
+# Data and models
+/data/*
+!/data/.gitkeep
+/models/*
+!/models/.gitkeep
+/results/*
+!/results/.gitkeep
+/logs/*
+!/logs/.gitkeep
+
+# Airflow
+airflow.db
+airflow.cfg
+airflow-webserver.pid
+standalone_admin_password.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
