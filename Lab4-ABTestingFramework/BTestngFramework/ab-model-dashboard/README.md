@@ -205,3 +205,22 @@ models:
 ```
 
 Traffic weights can also be changed at runtime via the `/config` endpoint or the dashboard slider.
+
+---
+
+## How This Differs from [MLflow Lab 1](https://github.com/raminmohammadi/MLOps/tree/main/Labs/Experiment_Tracking_Labs/Mlflow_Labs/Lab1)
+
+The course's MLflow Lab 1 teaches the **foundations** — experiment tracking, model logging, and the model registry. This project takes those building blocks and constructs a **production-grade A/B testing system** on top of them. Here's how they compare:
+
+| Aspect | MLflow Lab 1 (Course) | Lab 4 — A/B Testing Dashboard (This Project) |
+|---|---|---|
+| **Scope** | Single-model training & logging | Two-model comparison system with live routing |
+| **MLflow Usage** | `log_param`, `log_metric`, `log_model` basics | Model Registry stages (Production/Staging), step-level time-series metrics, background thread logging |
+| **Models** | One ElasticNet on wine quality | ElasticNet (Champion) + RandomForest (Challenger) on the same dataset |
+| **Serving** | `mlflow models serve` (MLflow's built-in server) | Custom Flask API with traffic routing, latency measurement, and request-level metadata |
+| **Evaluation** | Offline only (RMSE/MAE/R2 on a test set) | **Online evaluation** — real-time latency tracking, prediction distributions, and accuracy via delayed ground truth feedback |
+| **Model Registry** | Registers a model; no stage management | Registers two models, transitions Champion → Production and Challenger → Staging, designed for auto-promotion |
+| **Observability** | MLflow UI only | Live Chart.js dashboard with 4 panels (latency, traffic split, distributions, predictions over time) + MLflow logs |
+| **Traffic Management** | N/A (single model) | Configurable weighted A/B split (70/30 default), runtime adjustable via API or dashboard slider |
+| **Architecture** | Single Python script | Modular Flask app (router, tracker, metrics store, model loader) + Docker Compose + unit tests |
+| **Testing** | None | 33 unit tests covering routing logic, API endpoints, and metrics computation |
