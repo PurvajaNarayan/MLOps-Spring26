@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A/B Model Testing Dashboard</title>
+    <meta name="description" content="Live dashboard for comparing Champion vs Challenger ML model performance">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #0f1117;
+            --bg-card: #1a1d27;
+            --bg-card-hover: #22263a;
+            --border: #2a2e3f;
+            --text-primary: #e4e6f0;
+            --text-secondary: #8b8fa3;
+            --champion-color: #6366f1;
+            --champion-glow: rgba(99, 102, 241, 0.3);
+            --challenger-color: #f59e0b;
+            --challenger-glow: rgba(245, 158, 11, 0.3);
+            --success: #10b981;
+            --danger: #ef4444;
+            --gradient-start: #6366f1;
+            --gradient-end: #8b5cf6;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        .header {
+            background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.05));
+            border-bottom: 1px solid var(--border);
+            padding: 1.25rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+        }
+        .header-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .status-dot {
+            width: 8px; height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16,185,129,0.6); }
+            50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+        }
+        .status-text { font-size: 0.8rem; color: var(--text-secondary); }
+
+        /* ── Summary Bar ── */
+        .summary-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            padding: 1.25rem 2rem;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 3px;
+        }
+        .stat-card.champion::before { background: var(--champion-color); }
+        .stat-card.challenger::before { background: var(--challenger-color); }
+        .stat-card.neutral::before { background: linear-gradient(90deg, var(--champion-color), var(--challenger-color)); }
+        .stat-card:hover { border-color: rgba(99,102,241,0.3); transform: translateY(-2px); }
+        .stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-secondary); margin-bottom: 0.3rem; }
+        .stat-value { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; }
+        .stat-sub { font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.2rem; }
+        .champion-text { color: var(--champion-color); }
+        .challenger-text { color: var(--challenger-color); }
+
+        /* ── Chart Grid ── */
+        .chart-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            padding: 0 2rem 1.25rem;
+        }
+        .chart-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: all 0.3s ease;
+        }
+        .chart-card:hover { border-color: rgba(99,102,241,0.2); }
+        .chart-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .chart-title-icon {
+            width: 28px; height: 28px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.9rem;
+            background: rgba(99,102,241,0.12);
+        }
+        .chart-container { position: relative; height: 260px; }
+
+        /* ── Traffic Controls ── */
+        .controls-bar {
+            padding: 0 2rem 1.5rem;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        .slider-group {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+        }
+        .slider-label { font-size: 0.8rem; font-weight: 500; white-space: nowrap; }
+        .slider-input {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 6px;
+            background: linear-gradient(90deg, var(--champion-color), var(--challenger-color));
+            border-radius: 3px;
+            outline: none;
+        }
+        .slider-input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px; height: 18px;
+            background: white;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        .slider-value { font-size: 0.85rem; font-weight: 600; color: var(--champion-color); min-width: 80px; text-align: right; }
+        .apply-btn {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .apply-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,0.4); }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .chart-grid { grid-template-columns: 1fr; }
+            .summary-bar { grid-template-columns: 1fr 1fr; }
+            .header { padding: 1rem; }
+            .summary-bar, .chart-grid, .controls-bar { padding-left: 1rem; padding-right: 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="header">
+        <h1>⚡ A/B Model Testing Dashboard</h1>
+        <div class="header-badge">
+            <div class="status-dot"></div>
+            <span class="status-text">Live — polling every {{ refresh_ms }}ms</span>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="summary-bar">
+        <div class="stat-card champion">
+            <div class="stat-label">Champion Requests</div>
+            <div class="stat-value champion-text" id="champion-count">0</div>
+            <div class="stat-sub">ElasticNet — Production</div>
+        </div>
+        <div class="stat-card challenger">
+            <div class="stat-label">Challenger Requests</div>
+            <div class="stat-value challenger-text" id="challenger-count">0</div>
+            <div class="stat-sub">RandomForest — Staging</div>
+        </div>
+        <div class="stat-card champion">
+            <div class="stat-label">Champion Avg Latency</div>
+            <div class="stat-value" id="champion-latency">0 ms</div>
+            <div class="stat-sub" id="champion-p95">P95: — ms</div>
+        </div>
+        <div class="stat-card challenger">
+            <div class="stat-label">Challenger Avg Latency</div>
+            <div class="stat-value" id="challenger-latency">0 ms</div>
+            <div class="stat-sub" id="challenger-p95">P95: — ms</div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="chart-grid">
+        <!-- Latency Over Time -->
+        <div class="chart-card">
+            <div class="chart-title">
+                <div class="chart-title-icon">📈</div>
+                Latency Over Time
+            </div>
+            <div class="chart-container">
+                <canvas id="latencyChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Traffic Split -->
+        <div class="chart-card">
+            <div class="chart-title">
+                <div class="chart-title-icon">🎯</div>
+                Traffic Split
+            </div>
+            <div class="chart-container">
+                <canvas id="trafficChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Prediction Distribution -->
+        <div class="chart-card">
+            <div class="chart-title">
+                <div class="chart-title-icon">📊</div>
+                Prediction Distribution
+            </div>
+            <div class="chart-container">
+                <canvas id="distributionChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Prediction Values Over Time -->
+        <div class="chart-card">
+            <div class="chart-title">
+                <div class="chart-title-icon">🔬</div>
+                Predictions Over Time
+            </div>
+            <div class="chart-container">
+                <canvas id="predictionsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Traffic Controls -->
+    <div class="controls-bar">
+        <div class="slider-group">
+            <span class="slider-label">Traffic Split</span>
+            <input type="range" id="traffic-slider" class="slider-input" min="0" max="100" value="70">
+            <span class="slider-value" id="slider-display">70 / 30</span>
+        </div>
+        <button class="apply-btn" id="apply-btn" onclick="applyWeights()">Apply Weights</button>
+    </div>
+
+<script>
+    // ── Chart.js Config ──
+    Chart.defaults.color = '#8b8fa3';
+    Chart.defaults.borderColor = 'rgba(42, 46, 63, 0.5)';
+    Chart.defaults.font.family = "'Inter', sans-serif";
+
+    const CHAMPION_COLOR = '#6366f1';
+    const CHALLENGER_COLOR = '#f59e0b';
+    const CHAMPION_BG = 'rgba(99, 102, 241, 0.15)';
+    const CHALLENGER_BG = 'rgba(245, 158, 11, 0.15)';
+    const REFRESH_MS = {{ refresh_ms }};
+
+    // ── Latency Chart ──
+    const latencyCtx = document.getElementById('latencyChart').getContext('2d');
+    const latencyChart = new Chart(latencyCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Champion',
+                    data: [],
+                    borderColor: CHAMPION_COLOR,
+                    backgroundColor: CHAMPION_BG,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 2,
+                    borderWidth: 2,
+                },
+                {
+                    label: 'Challenger',
+                    data: [],
+                    borderColor: CHALLENGER_COLOR,
+                    backgroundColor: CHALLENGER_BG,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 2,
+                    borderWidth: 2,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { usePointStyle: true, pointStyle: 'circle', padding: 16, font: { size: 11 } } }
+            },
+            scales: {
+                x: { display: true, title: { display: true, text: 'Request #', font: { size: 10 } }, grid: { display: false } },
+                y: { display: true, title: { display: true, text: 'Latency (ms)', font: { size: 10 } }, beginAtZero: true }
+            },
+            animation: { duration: 300 }
+        }
+    });
+
+    // ── Traffic Split Chart ──
+    const trafficCtx = document.getElementById('trafficChart').getContext('2d');
+    const trafficChart = new Chart(trafficCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Champion', 'Challenger'],
+            datasets: [{
+                data: [70, 30],
+                backgroundColor: [CHAMPION_COLOR, CHALLENGER_COLOR],
+                borderColor: ['rgba(99,102,241,0.3)', 'rgba(245,158,11,0.3)'],
+                borderWidth: 2,
+                hoverOffset: 8,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+                legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', padding: 20, font: { size: 12 } } }
+            },
+            animation: { duration: 500 }
+        }
+    });
+
+    // ── Distribution Chart ──
+    const distCtx = document.getElementById('distributionChart').getContext('2d');
+    const distributionChart = new Chart(distCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Champion',
+                    data: [],
+                    backgroundColor: 'rgba(99, 102, 241, 0.7)',
+                    borderColor: CHAMPION_COLOR,
+                    borderWidth: 1,
+                    borderRadius: 4,
+                },
+                {
+                    label: 'Challenger',
+                    data: [],
+                    backgroundColor: 'rgba(245, 158, 11, 0.7)',
+                    borderColor: CHALLENGER_COLOR,
+                    borderWidth: 1,
+                    borderRadius: 4,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { usePointStyle: true, pointStyle: 'circle', padding: 16, font: { size: 11 } } }
+            },
+            scales: {
+                x: { title: { display: true, text: 'Predicted Quality', font: { size: 10 } }, grid: { display: false } },
+                y: { title: { display: true, text: 'Count', font: { size: 10 } }, beginAtZero: true }
+            },
+            animation: { duration: 300 }
+        }
+    });
+
+    // ── Predictions Over Time Chart ──
+    const predsCtx = document.getElementById('predictionsChart').getContext('2d');
+    const predictionsChart = new Chart(predsCtx, {
+        type: 'scatter',
+        data: {
+            datasets: [
+                {
+                    label: 'Champion',
+                    data: [],
+                    backgroundColor: CHAMPION_COLOR,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                },
+                {
+                    label: 'Challenger',
+                    data: [],
+                    backgroundColor: CHALLENGER_COLOR,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { usePointStyle: true, pointStyle: 'circle', padding: 16, font: { size: 11 } } }
+            },
+            scales: {
+                x: { title: { display: true, text: 'Request #', font: { size: 10 } }, grid: { display: false } },
+                y: { title: { display: true, text: 'Predicted Quality', font: { size: 10 } } }
+            },
+            animation: { duration: 300 }
+        }
+    });
+
+    // ── Slider ──
+    const slider = document.getElementById('traffic-slider');
+    const sliderDisplay = document.getElementById('slider-display');
+    slider.addEventListener('input', () => {
+        const val = parseInt(slider.value);
+        sliderDisplay.textContent = `${val} / ${100 - val}`;
+    });
+
+    function applyWeights() {
+        const champion_pct = parseInt(slider.value);
+        const challenger_pct = 100 - champion_pct;
+        const btn = document.getElementById('apply-btn');
+        btn.textContent = 'Applying...';
+        btn.style.opacity = '0.6';
+
+        fetch('/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ champion_pct, challenger_pct })
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.textContent = '✓ Applied';
+            btn.style.opacity = '1';
+            setTimeout(() => { btn.textContent = 'Apply Weights'; }, 1500);
+        })
+        .catch(err => {
+            btn.textContent = 'Error!';
+            btn.style.opacity = '1';
+            setTimeout(() => { btn.textContent = 'Apply Weights'; }, 2000);
+        });
+    }
+
+    // ── Histogram helper ──
+    function buildHistogram(values, bins = 10) {
+        if (!values.length) return { labels: [], counts: [] };
+        const min = Math.floor(Math.min(...values));
+        const max = Math.ceil(Math.max(...values));
+        const range = max - min || 1;
+        const binWidth = range / bins;
+        const labels = [];
+        const counts = new Array(bins).fill(0);
+        for (let i = 0; i < bins; i++) {
+            const lo = (min + i * binWidth).toFixed(1);
+            const hi = (min + (i + 1) * binWidth).toFixed(1);
+            labels.push(`${lo}-${hi}`);
+        }
+        values.forEach(v => {
+            let idx = Math.floor((v - min) / binWidth);
+            if (idx >= bins) idx = bins - 1;
+            if (idx < 0) idx = 0;
+            counts[idx]++;
+        });
+        return { labels, counts };
+    }
+
+    // ── Polling ──
+    function fetchMetrics() {
+        fetch('/api/metrics')
+            .then(r => r.json())
+            .then(data => {
+                // Summary stats
+                document.getElementById('champion-count').textContent = data.champion.count.toLocaleString();
+                document.getElementById('challenger-count').textContent = data.challenger.count.toLocaleString();
+                document.getElementById('champion-latency').textContent = `${data.champion.avg_latency} ms`;
+                document.getElementById('challenger-latency').textContent = `${data.challenger.avg_latency} ms`;
+                document.getElementById('champion-p95').textContent = `P95: ${data.champion.p95_latency} ms`;
+                document.getElementById('challenger-p95').textContent = `P95: ${data.challenger.p95_latency} ms`;
+
+                // Latency chart
+                const champLatencies = data.champion.latencies || [];
+                const challLatencies = data.challenger.latencies || [];
+                const maxLen = Math.max(champLatencies.length, challLatencies.length);
+                latencyChart.data.labels = Array.from({length: maxLen}, (_, i) => i + 1);
+                latencyChart.data.datasets[0].data = champLatencies;
+                latencyChart.data.datasets[1].data = challLatencies;
+                latencyChart.update('none');
+
+                // Traffic split
+                trafficChart.data.datasets[0].data = [
+                    data.traffic_split.champion,
+                    data.traffic_split.challenger
+                ];
+                trafficChart.update('none');
+
+                // Prediction distribution
+                const allPreds = [...(data.champion.predictions || []), ...(data.challenger.predictions || [])];
+                const champHist = buildHistogram(data.champion.predictions || []);
+                const challHist = buildHistogram(data.challenger.predictions || []);
+                // Use unified bins from all predictions
+                const unified = buildHistogram(allPreds);
+                const champUnified = buildHistogram(data.champion.predictions || [], 10);
+                const challUnified = buildHistogram(data.challenger.predictions || [], 10);
+                distributionChart.data.labels = unified.labels;
+                distributionChart.data.datasets[0].data = champUnified.counts;
+                distributionChart.data.datasets[1].data = challUnified.counts;
+                distributionChart.update('none');
+
+                // Predictions over time
+                const champScatter = (data.champion.predictions || []).map((p, i) => ({x: i+1, y: p}));
+                const challScatter = (data.challenger.predictions || []).map((p, i) => ({x: i+1, y: p}));
+                predictionsChart.data.datasets[0].data = champScatter;
+                predictionsChart.data.datasets[1].data = challScatter;
+                predictionsChart.update('none');
+
+                // Update slider to reflect current weights
+                if (data.weights) {
+                    slider.value = data.weights.champion_pct;
+                    sliderDisplay.textContent = `${data.weights.champion_pct} / ${data.weights.challenger_pct}`;
+                }
+            })
+            .catch(err => console.warn('Metrics fetch failed:', err));
+    }
+
+    // Start polling
+    fetchMetrics();
+    setInterval(fetchMetrics, REFRESH_MS);
+</script>
+
+</body>
+</html>

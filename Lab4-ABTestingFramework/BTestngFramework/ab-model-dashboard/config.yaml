@@ -1,0 +1,19 @@
+traffic:
+  champion_pct: 70      # 70% to champion
+  challenger_pct: 30    # 30% to challenger
+
+models:
+  champion:
+    name: "WineQualityModel"
+    stage: "Production"
+  challenger:
+    name: "WineQualityChallenger"
+    stage: "Staging"
+
+thresholds:
+  max_latency_ms: 50
+  min_accuracy_delta: -0.02   # Challenger can be at most 2% worse
+
+monitoring:
+  buffer_size: 1000
+  dashboard_refresh_ms: 2000

@@ -1,0 +1,14 @@
+artifact_uri: /Users/purvajanarayana/Documents/GitHub/MLOps-Spring26/Lab4-ABTestingFramework/BTestngFramework/ab-model-dashboard/mlruns/978749284208833230/b8c316f25f4c4784a5c8e9a5582220aa/artifacts
+end_time: 1773464726618
+entry_point_name: ''
+experiment_id: '978749284208833230'
+lifecycle_stage: active
+run_id: b8c316f25f4c4784a5c8e9a5582220aa
+run_name: ab-test-challenger
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1773464726609
+status: 3
+tags: []
+user_id: purvajanarayana

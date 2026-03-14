@@ -1,0 +1,7 @@
+artifact_location: /Users/purvajanarayana/Documents/GitHub/MLOps-Spring26/Lab4-ABTestingFramework/BTestngFramework/ab-model-dashboard/mlruns/978749284208833230
+creation_time: 1773464494988
+experiment_id: '978749284208833230'
+last_update_time: 1773464494988
+lifecycle_stage: active
+name: ab-test-wine-quality
+workspace: default
