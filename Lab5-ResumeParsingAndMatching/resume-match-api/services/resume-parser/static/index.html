@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resume Parser — Upload &amp; Analyze</title>
+  <meta name="description" content="Upload a PDF resume and instantly extract structured data including contact info, skills, experience, and education." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: rgba(255,255,255,0.04);
+      --surface-hover: rgba(255,255,255,0.07);
+      --border: rgba(255,255,255,0.08);
+      --border-accent: rgba(99,102,241,0.4);
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent: #818cf8;
+      --accent-glow: rgba(99,102,241,0.25);
+      --success: #34d399;
+      --error: #f87171;
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem 4rem;
+      overflow-x: hidden;
+    }
+
+    /* animated gradient orbs */
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: .35;
+      z-index: -1;
+      animation: float 18s ease-in-out infinite alternate;
+    }
+    body::before { width: 500px; height: 500px; background: #6366f1; top: -120px; left: -80px; }
+    body::after  { width: 400px; height: 400px; background: #a78bfa; bottom: -100px; right: -60px; animation-delay: -9s; }
+    @keyframes float { to { transform: translate(60px, 40px) scale(1.1); } }
+
+    header { text-align: center; margin-bottom: 2.5rem; }
+    header h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+    header p { color: var(--text-muted); margin-top: .5rem; font-size: .95rem; }
+
+    /* ── Upload Zone ─────────────────────────── */
+    #drop-zone {
+      width: 100%;
+      max-width: 560px;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      backdrop-filter: blur(12px);
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .25s, background .25s, box-shadow .25s;
+    }
+    #drop-zone:hover, #drop-zone.drag-over {
+      border-color: var(--accent);
+      background: var(--surface-hover);
+      box-shadow: 0 0 30px var(--accent-glow);
+    }
+    #drop-zone .icon { font-size: 2.6rem; margin-bottom: .75rem; }
+    #drop-zone .label { font-weight: 600; font-size: 1.05rem; }
+    #drop-zone .hint  { color: var(--text-muted); font-size: .82rem; margin-top: .4rem; }
+    #file-input { display: none; }
+
+    /* ── Status ───────────────────────────────── */
+    #status {
+      margin-top: 1.25rem;
+      font-size: .9rem;
+      min-height: 1.4rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2.5px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Results ──────────────────────────────── */
+    #results {
+      width: 100%;
+      max-width: 700px;
+      margin-top: 2rem;
+      display: none;
+      animation: fadeUp .45s ease;
+    }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+
+    .card {
+      background: var(--surface);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      transition: border-color .2s;
+    }
+    .card:hover { border-color: var(--border-accent); }
+
+    .card-title {
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--accent);
+      margin-bottom: .85rem;
+    }
+
+    /* Contact */
+    .contact-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: .6rem;
+    }
+    .contact-item { display: flex; align-items: center; gap: .5rem; font-size: .92rem; }
+    .contact-label { color: var(--text-muted); font-size: .78rem; }
+
+    /* Skills */
+    .skills-wrap { display: flex; flex-wrap: wrap; gap: .45rem; }
+    .skill-tag {
+      background: rgba(99,102,241,0.12);
+      color: var(--accent);
+      border: 1px solid rgba(99,102,241,0.2);
+      border-radius: 99px;
+      padding: .3rem .75rem;
+      font-size: .8rem;
+      font-weight: 500;
+      transition: background .2s, transform .15s;
+    }
+    .skill-tag:hover { background: rgba(99,102,241,0.22); transform: translateY(-1px); }
+
+    /* Experience / Education entries */
+    .entry { padding: .85rem 0; border-bottom: 1px solid var(--border); }
+    .entry:last-child { border-bottom: none; padding-bottom: 0; }
+    .entry:first-child { padding-top: 0; }
+    .entry-title { font-weight: 600; font-size: .95rem; }
+    .entry-sub { color: var(--text-muted); font-size: .85rem; margin-top: .15rem; }
+    .entry-date { color: var(--accent); font-size: .8rem; font-weight: 500; margin-top: .2rem; }
+    .entry-bullets { list-style: none; margin-top: .45rem; }
+    .entry-bullets li {
+      position: relative;
+      padding-left: 1rem;
+      font-size: .85rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+    .entry-bullets li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: .55em;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: .6;
+    }
+
+    /* Error */
+    .error-msg { color: var(--error); font-weight: 500; }
+
+    /* Responsive */
+    @media (max-width: 520px) {
+      header h1 { font-size: 1.6rem; }
+      #drop-zone { padding: 2rem 1.25rem; }
+      .card { padding: 1.15rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Resume Parser</h1>
+  <p>Drop a PDF resume to extract structured data instantly</p>
+</header>
+
+<div id="drop-zone" tabindex="0" role="button" aria-label="Upload PDF resume">
+  <div class="icon">📄</div>
+  <div class="label">Drag &amp; drop your resume PDF here</div>
+  <div class="hint">or click to browse · PDF only · 10 MB max</div>
+</div>
+<input type="file" id="file-input" accept=".pdf" />
+
+<div id="status"></div>
+
+<section id="results">
+  <!-- Contact -->
+  <div class="card" id="contact-card">
+    <div class="card-title">Contact Information</div>
+    <div class="contact-grid" id="contact-grid"></div>
+  </div>
+  <!-- Skills -->
+  <div class="card" id="skills-card">
+    <div class="card-title">Skills</div>
+    <div class="skills-wrap" id="skills-wrap"></div>
+  </div>
+  <!-- Experience -->
+  <div class="card" id="experience-card">
+    <div class="card-title">Experience</div>
+    <div id="experience-list"></div>
+  </div>
+  <!-- Education -->
+  <div class="card" id="education-card">
+    <div class="card-title">Education</div>
+    <div id="education-list"></div>
+  </div>
+</section>
+
+<script>
+  const dropZone  = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+  const status    = document.getElementById('status');
+  const results   = document.getElementById('results');
+
+  // ── Drag & drop ──
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+  async function handleFile(file) {
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      showStatus('Please upload a PDF file.', true);
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showStatus('File exceeds the 10 MB limit.', true);
+      return;
+    }
+
+    showStatus('Parsing resume…', false, true);
+    results.style.display = 'none';
+
+    const form = new FormData();
+    form.append('resume', file);
+
+    try {
+      const res = await fetch('/parse', { method: 'POST', body: form });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || 'Server error');
+      }
+      const data = await res.json();
+      renderResults(data);
+      showStatus('✓ Parsed successfully', false);
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  }
+
+  function showStatus(msg, isError = false, loading = false) {
+    status.innerHTML = (loading ? '<div class="spinner"></div>' : '') +
+      `<span class="${isError ? 'error-msg' : ''}">${msg}</span>`;
+  }
+
+  function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function renderResults(data) {
+    // Contact
+    const grid = document.getElementById('contact-grid');
+    grid.innerHTML = [
+      { label: 'Name',  value: data.name },
+      { label: 'Email', value: data.email },
+      { label: 'Phone', value: data.phone },
+    ].filter(c => c.value)
+     .map(c => `<div class="contact-item"><span class="contact-label">${c.label}</span> ${esc(c.value)}</div>`)
+     .join('') || '<span style="color:var(--text-muted)">No contact info found</span>';
+
+    // Skills
+    const wrap = document.getElementById('skills-wrap');
+    wrap.innerHTML = data.skills.length
+      ? data.skills.map(s => `<span class="skill-tag">${esc(s)}</span>`).join('')
+      : '<span style="color:var(--text-muted)">No skills found</span>';
+
+    // Experience
+    const expList = document.getElementById('experience-list');
+    expList.innerHTML = data.experience.length
+      ? data.experience.map(e => `
+        <div class="entry">
+          <div class="entry-title">${esc(e.title)}</div>
+          <div class="entry-sub">${esc(e.company)}</div>
+          ${e.dates ? `<div class="entry-date">${esc(e.dates)}</div>` : ''}
+          ${e.bullets.length ? `<ul class="entry-bullets">${e.bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
+        </div>`).join('')
+      : '<span style="color:var(--text-muted)">No experience found</span>';
+
+    // Education
+    const eduList = document.getElementById('education-list');
+    eduList.innerHTML = data.education.length
+      ? data.education.map(e => `
+        <div class="entry">
+          <div class="entry-title">${esc(e.institution)}</div>
+          <div class="entry-sub">${esc(e.degree)}</div>
+          ${e.dates ? `<div class="entry-date">${esc(e.dates)}</div>` : ''}
+          ${e.details.length ? `<ul class="entry-bullets">${e.details.map(d => `<li>${esc(d)}</li>`).join('')}</ul>` : ''}
+        </div>`).join('')
+      : '<span style="color:var(--text-muted)">No education found</span>';
+
+    results.style.display = 'block';
+  }
+</script>
+</body>
+</html>
