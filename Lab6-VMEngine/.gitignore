@@ -1,0 +1,13 @@
+# Large dataset files
+food_inspection_boston_dataset.csv
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Model artifacts (optional - can be large)
+# xgboost_food_inspection.pkl
+
+# Virtual environment
+venv/
+env/
